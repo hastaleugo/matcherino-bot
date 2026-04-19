@@ -23,7 +23,7 @@ jobs:
 
       - name: Lancer le bot
         env:
-          WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
+          WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK }}
         run: python bot_matcherino.py
 
       - name: Sauvegarder les tournois vus
