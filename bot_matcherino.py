@@ -3,7 +3,7 @@ import json
 import os
 from playwright.sync_api import sync_playwright
 
-WEBHOOK_URL = os.environ.get("DISCORD_WEBHOOK")
+WEBHOOK_URL = os.environ.get("WEBHOOK_URL")
 FICHIER_VUES = "tournois_vus.json"
 URL_MATCHERINO = "https://matcherino.com/supercell/tournaments"
 
