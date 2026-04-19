@@ -30,6 +30,6 @@ jobs:
         run: |
           git config user.name "Matcherino Bot"
           git config user.email "bot@github.com"
-          git add tournois_vus.json
+          git add tournois_vus.json || true
           git diff --cached --quiet || git commit -m "Update tournois vus [skip ci]"
           git push || true
