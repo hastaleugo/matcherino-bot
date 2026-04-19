@@ -51,7 +51,16 @@ def envoyer_alerte(tournoi):
     print(f"✅ Alerte envoyée : {tournoi['nom']}")
 
 def main():
-    envoyer_alerte({"nom": "TEST - Bot opérationnel ✅", "url": "https://matcherino.com"})
+    vus = charger_vus()
+    tournois = scraper_tournois()
+    nouveaux = [t for t in tournois if t["url"] not in vus]
+    if nouveaux:
+        for t in nouveaux:
+            envoyer_alerte(t)
+            vus.append(t["url"])
+        sauvegarder_vus(vus)
+    else:
+        print("Aucun nouveau tournoi EMEA.")
 
 if __name__ == "__main__":
     main()
