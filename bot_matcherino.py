@@ -1,13 +1,11 @@
-import json, os, requests
-from bs4 import BeautifulSoup
+import requests
+import json
+import os
+from playwright.sync_api import sync_playwright
 
-WEBHOOK_URL = os.environ.get("WEBHOOK_URL", "")
+WEBHOOK_URL = os.environ.get("DISCORD_WEBHOOK")
 FICHIER_VUES = "tournois_vus.json"
-
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-    "Accept": "text/html,application/xhtml+xml,*/*;q=0.8",
-}
+URL_MATCHERINO = "https://matcherino.com/supercell/tournaments"
 
 def charger_vus():
     if os.path.exists(FICHIER_VUES):
@@ -21,25 +19,24 @@ def sauvegarder_vus(liste):
 
 def scraper_tournois():
     tournois = []
-    urls = [
-        "https://matcherino.com/supercell/tournaments",
-        "https://matcherino.com/t/featured",
-    ]
-    for url in urls:
-        try:
-            r = requests.get(url, headers=HEADERS, timeout=15)
-            soup = BeautifulSoup(r.text, "html.parser")
-            for lien in soup.find_all("a", href=True):
-                href = lien["href"]
-                texte = lien.get_text(strip=True)
-                if "/tournaments/" in href and "EMEA" in texte.upper() and texte:
-                    url_complete = "https://matcherino.com" + href if href.startswith("/") else href
-                    entry = {"nom": texte, "url": url_complete}
-                    if entry not in tournois:
-                        tournois.append(entry)
-        except Exception as e:
-            print(f"Erreur {url}: {e}")
-    print(f"Tournois EMEA détectés : {len(tournois)}")
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page()
+            page.goto(URL_MATCHERINO, timeout=30000)
+            page.wait_for_load_state("networkidle", timeout=20000)
+            liens = page.query_selector_all("a[href*='/tournaments/']")
+            for lien in liens:
+                texte = lien.inner_text().strip()
+                href = lien.get_attribute("href")
+                if not texte or not href:
+                    continue
+                if "EMEA" in texte.upper():
+                    url = "https://matcherino.com" + href if href.startswith("/") else href
+                    tournois.append({"nom": texte, "url": url})
+            browser.close()
+    except Exception as e:
+        print(f"Erreur scraping : {e}")
     return tournois
 
 def envoyer_alerte(tournoi):
@@ -50,18 +47,20 @@ def envoyer_alerte(tournoi):
             f"🔗 {tournoi['url']}"
         )
     }
-    r = requests.post(WEBHOOK_URL, json=message)
-    print(f"✅ Alerte envoyée : {tournoi['nom']} ({r.status_code})")
+    requests.post(WEBHOOK_URL, json=message)
+    print(f"✅ Alerte envoyée : {tournoi['nom']}")
 
 def main():
     vus = charger_vus()
     tournois = scraper_tournois()
     nouveaux = [t for t in tournois if t["url"] not in vus]
-    for t in nouveaux:
-        envoyer_alerte(t)
-        vus.append(t["url"])
-    sauvegarder_vus(vus)
-    print(f"✅ Terminé — {len(nouveaux)} nouveau(x) tournoi(s).")
+    if nouveaux:
+        for t in nouveaux:
+            envoyer_alerte(t)
+            vus.append(t["url"])
+        sauvegarder_vus(vus)
+    else:
+        print("Aucun nouveau tournoi EMEA.")
 
 if __name__ == "__main__":
     main()
